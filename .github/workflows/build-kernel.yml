@@ -1,0 +1,59 @@
+name: Build RMX3830 Kernel
+
+on:
+  workflow_dispatch:
+    inputs:
+      defconfig:
+        description: "Base defconfig fragment to use"
+        required: false
+        default: "sprd_gki_qogirn6l_defconfig"
+  push:
+    branches: [ realme/ums9230_v_15.0 ]
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout kernel source (this fork)
+        uses: actions/checkout@v4
+        with:
+          ref: realme/ums9230_v_15.0
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            bc bison build-essential ccache curl flex \
+            libssl-dev libelf-dev python3 rsync unzip \
+            clang lld llvm device-tree-compiler
+
+      - name: Show toolchain versions
+        run: |
+          clang --version
+          ld.lld --version
+
+      - name: Configure kernel
+        run: |
+          make ARCH=arm64 LLVM=1 O=out ${{ github.event.inputs.defconfig || 'sprd_gki_qogirn6l_defconfig' }}
+
+      - name: Build kernel
+        run: |
+          make -j$(nproc) ARCH=arm64 LLVM=1 O=out 2>&1 | tee build.log
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
+
+      - name: Upload kernel Image
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-image
+          path: |
+            out/arch/arm64/boot/Image
+            out/arch/arm64/boot/Image.gz
+            out/arch/arm64/boot/Image.lz4
+          if-no-files-found: warn
