@@ -18,8 +18,6 @@ for u in "${URLS[@]}"; do
   fi
   if [ -n "${seen_ids["$id"]+x}" ]; then
     echo "ERROR: duplicate mediafire ID '$id' found in more than one URL." >&2
-    echo "  -> $u" >&2
-    echo "  -> ${seen_ids["$id"]}" >&2
     exit 1
   fi
   seen_ids["$id"]="$u"
@@ -41,10 +39,33 @@ if [ -z "$FIRST_PART" ]; then
 fi
 sudo 7z x "$FIRST_PART" -o"$WORKDIR/fw/extracted" -y
 
+echo "== Recursively extracting any nested archives until a .pac appears =="
+EXTRACT_DIR="$WORKDIR/fw/extracted"
+for pass in 1 2 3 4 5; do
+  PAC_CHECK=$(find "$EXTRACT_DIR" -iname "*.pac" | head -n1)
+  if [ -n "$PAC_CHECK" ]; then
+    echo "Found .pac on pass $pass: $PAC_CHECK"
+    break
+  fi
+  NESTED=$(find "$EXTRACT_DIR" -type f \( -iname "*.zip" -o -iname "*.rar" -o -iname "*.7z" \))
+  if [ -z "$NESTED" ]; then
+    echo "No .pac and no further nested archives found on pass $pass. Stopping."
+    break
+  fi
+  echo "-- Pass $pass: found nested archive(s), extracting --"
+  echo "$NESTED"
+  while IFS= read -r archive; do
+    dest="${archive%.*}_extracted"
+    sudo 7z x "$archive" -o"$dest" -y
+    sudo rm -f "$archive"
+  done <<< "$NESTED"
+done
+
 echo "== Locating .pac file =="
-PAC_FILE=$(find "$WORKDIR/fw/extracted" -iname "*.pac" | head -n1)
+PAC_FILE=$(find "$EXTRACT_DIR" -iname "*.pac" | head -n1)
 if [ -z "$PAC_FILE" ]; then
-  echo "ERROR: no .pac file found after extraction" >&2
+  echo "ERROR: no .pac file found after recursive extraction. Contents:" >&2
+  find "$EXTRACT_DIR" -type f >&2
   exit 1
 fi
 echo "Found: $PAC_FILE"
