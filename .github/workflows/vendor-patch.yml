@@ -1,0 +1,163 @@
+name: Vendor Patch
+
+on:
+  workflow_dispatch:
+    inputs:
+      SUPER_IMG_URL:
+        description: 'Direct download URL to super.img (or super.img.gz/.xz)'
+        required: true
+      MODE:
+        description: 'extract = pull fstab files out for editing | patch = apply patches/ and repack'
+        required: true
+        type: choice
+        options:
+          - extract
+          - patch
+      VENDOR_PARTITION_NAME:
+        description: 'Name of the vendor partition inside super (e.g. vendor_a)'
+        required: true
+        default: 'vendor_a'
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install base tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y e2fsprogs util-linux wget unzip xz-utils python3
+
+      - name: Get prebuilt lpunpack/lpmake/simg2img/ext2simg
+        run: |
+          git clone --depth=1 https://github.com/Rprop/aosp15_partition_tools.git tools_repo
+          mkdir -p tools
+          cp tools_repo/linux_glibc_x86_64/* tools/
+          chmod +x tools/*
+
+      - name: Get avbtool
+        run: |
+          wget -q https://raw.githubusercontent.com/aosp-mirror/platform_external_avb/master/avbtool.py -O tools/avbtool.py
+          chmod +x tools/avbtool.py
+
+      - name: Download super.img
+        run: |
+          mkdir -p work
+          cd work
+          wget -q "${{ github.event.inputs.SUPER_IMG_URL }}" -O super_download
+          # handle plain / gz / xz transparently
+          file super_download
+          if file super_download | grep -qi gzip; then
+            mv super_download super.img.gz && gunzip super.img.gz
+          elif file super_download | grep -qi xz; then
+            mv super_download super.img.xz && unxz super.img.xz
+          else
+            mv super_download super.img
+          fi
+
+      - name: Convert sparse image if needed
+        run: |
+          cd work
+          if ../tools/simg2img super.img super.raw.img 2>/dev/null; then
+            mv super.raw.img super.img
+          fi
+
+      - name: Unpack super partition
+        run: |
+          cd work
+          ../tools/lpunpack super.img unpacked/
+          ls -la unpacked/
+
+      - name: Prepare vendor image for mount
+        run: |
+          cd work
+          VNAME="${{ github.event.inputs.VENDOR_PARTITION_NAME }}"
+          cp "unpacked/${VNAME}.img" vendor.img
+          e2fsck -yf vendor.img || true
+          resize2fs vendor.img 2G
+
+      - name: Mount vendor image
+        run: |
+          cd work
+          mkdir -p vendor
+          sudo mount -o loop vendor.img vendor
+          find vendor/etc -maxdepth 1 -iname "fstab.*" | sort
+
+      # ---------------- MODE: extract ----------------
+      - name: "[extract] Zip fstab files found in vendor"
+        if: ${{ github.event.inputs.MODE == 'extract' }}
+        run: |
+          cd work
+          mkdir -p extracted
+          find vendor/etc -maxdepth 1 -iname "fstab.*" -exec cp {} extracted/ \;
+          cd extracted && zip -r ../fstabs.zip . && cd ..
+          ls -la extracted > ../fstab_manifest.txt
+          cat ../fstab_manifest.txt
+
+      - name: "[extract] Upload fstab zip + manifest"
+        if: ${{ github.event.inputs.MODE == 'extract' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: fstab-extract
+          path: |
+            work/fstabs.zip
+            fstab_manifest.txt
+
+      # ---------------- MODE: patch ----------------
+      - name: "[patch] Apply patches from config/patch_map.json"
+        if: ${{ github.event.inputs.MODE == 'patch' }}
+        run: |
+          cd work
+          echo "Vendor Patch Run Log - $(date -u)" > ../patch_run.log
+          python3 - << 'PYEOF' >> ../patch_run.log
+          import json, subprocess, os, shutil
+
+          with open("../config/patch_map.json") as f:
+              mapping = json.load(f)
+
+          for entry in mapping:
+              src = f"../{entry['source']}"
+              dst = f"vendor/{entry['target']}"
+              if not os.path.isfile(src):
+                  print(f"SKIP (no patch file): {entry['source']}")
+                  continue
+              if not os.path.isfile(dst):
+                  print(f"SKIP (target not present in vendor): {entry['target']}")
+                  continue
+              before = open(dst, "rb").read()
+              shutil.copyfile(src, dst)
+              after = open(dst, "rb").read()
+              status = "CHANGED" if before != after else "IDENTICAL (no diff)"
+              print(f"PATCHED: {entry['target']}  <-  {entry['source']}  [{status}]")
+          PYEOF
+          cat ../patch_run.log
+
+      - name: "[patch] Unmount and shrink vendor image"
+        if: ${{ github.event.inputs.MODE == 'patch' }}
+        run: |
+          cd work
+          sudo umount vendor
+          e2fsck -yf vendor.img || true
+          resize2fs -M vendor.img
+          e2fsck -yf vendor.img || true
+
+      - name: "[patch] Note on AVB / vbmeta"
+        if: ${{ github.event.inputs.MODE == 'patch' }}
+        run: |
+          echo "" >> patch_run.log
+          echo "NOTE: vendor.img was modified, which invalidates its original AVB hash." >> patch_run.log
+          echo "This build does NOT re-sign or repack vendor into super, and does NOT" >> patch_run.log
+          echo "produce a flashable image. Review this log first. Flashing a modified" >> patch_run.log
+          echo "vendor without disabling AVB verification (fastboot --disable-verification" >> patch_run.log
+          echo "on vbmeta) WILL cause a bootloop." >> patch_run.log
+          cat patch_run.log
+
+      - name: "[patch] Upload run log only (no vendor/super image)"
+        if: ${{ github.event.inputs.MODE == 'patch' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: patch-run-log
+          path: |
+            patch_run.log

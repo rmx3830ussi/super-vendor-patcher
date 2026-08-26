@@ -1,0 +1,18 @@
+[
+  { "source": "patches/fstab.ums9230_1h10",     "target": "etc/fstab.ums9230_1h10" },
+  { "source": "patches/fstab.ums9230_1h10_go",  "target": "etc/fstab.ums9230_1h10_go" },
+  { "source": "patches/fstab.ums9230_4h10",     "target": "etc/fstab.ums9230_4h10" },
+  { "source": "patches/fstab.ums9230_4h10_go",  "target": "etc/fstab.ums9230_4h10_go" },
+  { "source": "patches/fstab.ums9230_6h10",     "target": "etc/fstab.ums9230_6h10" },
+  { "source": "patches/fstab.ums9230_6h10_go",  "target": "etc/fstab.ums9230_6h10_go" },
+  { "source": "patches/fstab.ums9230_14c10_go", "target": "etc/fstab.ums9230_14c10_go" },
+  { "source": "patches/fstab.ums9230_dhaka",    "target": "etc/fstab.ums9230_dhaka" },
+  { "source": "patches/fstab.ums9230_dhaka_go", "target": "etc/fstab.ums9230_dhaka_go" },
+  { "source": "patches/fstab.ums9230_hulk",     "target": "etc/fstab.ums9230_hulk" },
+  { "source": "patches/fstab.ums9230_hulkU",    "target": "etc/fstab.ums9230_hulkU" },
+  { "source": "patches/fstab.ums9230_latte",    "target": "etc/fstab.ums9230_latte" },
+  { "source": "patches/fstab.uis7863_6h10",     "target": "etc/fstab.uis7863_6h10" },
+  { "source": "patches/fstab.uis7863_6h10_go",  "target": "etc/fstab.uis7863_6h10_go" },
+  { "source": "patches/fstab.uis7865_6h10",     "target": "etc/fstab.uis7865_6h10" },
+  { "source": "patches/fstab.uis7865_6h10_go",  "target": "etc/fstab.uis7865_6h10_go" }
+]
