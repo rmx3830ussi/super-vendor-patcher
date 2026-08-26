@@ -50,15 +50,18 @@ jobs:
 
       - name: Install base tools
         run: |
+          lsblk
           sudo apt-get update
           sudo apt-get install -y e2fsprogs util-linux wget unzip xz-utils python3 aria2 p7zip-full
 
       - name: Get prebuilt lpunpack/lpmake/simg2img/ext2simg
         run: |
-          git clone --depth=1 https://github.com/Rprop/aosp15_partition_tools.git tools_repo
-          mkdir -p tools
-          cp tools_repo/linux_glibc_x86_64/* tools/
+          cd /mnt
+          sudo git clone --depth=1 https://github.com/Rprop/aosp15_partition_tools.git tools_repo
+          sudo mkdir -p tools
+          sudo cp tools_repo/linux_glibc_x86_64/* tools/
           chmod +x tools/*
+          ls /mnt
 
       - name: Get avbtool
         run: |
