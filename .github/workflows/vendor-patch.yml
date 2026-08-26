@@ -57,7 +57,7 @@ jobs:
 
       - name: Get avbtool
         run: |
-          wget -q https://raw.githubusercontent.com/aosp-mirror/platform_external_avb/master/avbtool.py -O tools/avbtool.py
+          wget -q https://raw.githubusercontent.com/jbeich/platform_external_avb/master/avbtool.py -O tools/avbtool.py
           chmod +x tools/avbtool.py
 
       - name: Prepare /mnt/tmp working directory
