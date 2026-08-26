@@ -14,13 +14,18 @@ on:
       SUPER_IMG_URL:
         description: 'Only used when SOURCE=direct_url'
         required: false
-      MEDIAFIRE_URLS:
-        description: 'Only used when SOURCE=mediafire_pac. One URL per line.'
+      MEDIAFIRE_URL_1:
+        description: 'Only used when SOURCE=mediafire_pac. Part 1 URL.'
         required: false
-        default: |
-          https://www.mediafire.com/file/fxqbbulzea7q1fu/RMX3830export_15_F.98_2026011910520000_GsmMafia.Com.7z.001/file
-          https://www.mediafire.com/file/msvz15gtbkiunok/RMX3830export_15_F.98_2026011910520000_GsmMafia.Com.7z.002/file
-          https://www.mediafire.com/file/1ef3s7qjo3b2z3c/RMX3830export_15_F.98_2026011910520000_GsmMafia.Com.7z.003/file
+        default: 'https://www.mediafire.com/file/fxqbbulzea7q1fu/RMX3830export_15_F.98_2026011910520000_GsmMafia.Com.7z.001/file'
+      MEDIAFIRE_URL_2:
+        description: 'Only used when SOURCE=mediafire_pac. Part 2 URL.'
+        required: false
+        default: 'https://www.mediafire.com/file/msvz15gtbkiunok/RMX3830export_15_F.98_2026011910520000_GsmMafia.Com.7z.002/file'
+      MEDIAFIRE_URL_3:
+        description: 'Only used when SOURCE=mediafire_pac. Part 3 URL.'
+        required: false
+        default: 'https://www.mediafire.com/file/1ef3s7qjo3b2z3c/RMX3830export_15_F.98_2026011910520000_GsmMafia.Com.7z.003/file'
       MODE:
         description: 'extract = pull fstab files out for editing | patch = apply patches/ and repack'
         required: true
@@ -84,8 +89,10 @@ jobs:
       - name: "[mediafire_pac] Download + extract firmware, get super.img"
         if: ${{ github.event.inputs.SOURCE == 'mediafire_pac' }}
         run: |
-          mapfile -t URLS <<< "${{ github.event.inputs.MEDIAFIRE_URLS }}"
-          bash scripts/fetch_mediafire_firmware.sh /mnt/tmp "${URLS[@]}"
+          bash scripts/fetch_mediafire_firmware.sh /mnt/tmp \
+            "${{ github.event.inputs.MEDIAFIRE_URL_1 }}" \
+            "${{ github.event.inputs.MEDIAFIRE_URL_2 }}" \
+            "${{ github.event.inputs.MEDIAFIRE_URL_3 }}"
 
       - name: Move super.img into work directory
         run: |

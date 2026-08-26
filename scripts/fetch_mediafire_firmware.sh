@@ -1,5 +1,5 @@
 #!/bin/bash
-# Usage: fetch_mediafire_firmware.sh <workdir> <url1> [url2] [url3] ...
+# Usage: fetch_mediafire_firmware.sh <workdir> <url1> <url2> <url3>
 set -euo pipefail
 WORKDIR="$1"; shift
 URLS=("$@")
@@ -8,19 +8,23 @@ sudo mkdir -p "$WORKDIR/fw"
 sudo chown -R "$(whoami)":"$(whoami)" "$WORKDIR"
 cd "$WORKDIR/fw"
 
-echo "== Checking for duplicate mediafire file IDs (common copy-paste mistake) =="
+echo "== Checking for duplicate mediafire file IDs =="
 declare -A seen_ids
 for u in "${URLS[@]}"; do
-  id=$(echo "$u" | awk -F'/file/' '{print $2}' | awk -F'/' '{print $1}')
-  if [ -n "${seen_ids[$id]:-}" ]; then
-    echo "ERROR: duplicate mediafire ID '$id' found in more than one URL." >&2
-    echo "  -> $u" >&2
-    echo "  -> ${seen_ids[$id]}" >&2
-    echo "These point to the SAME file. Go back to the source and get the real, distinct URLs for each part." >&2
+  id="$(echo "$u" | grep -oE '/file/[^/]+' | head -n1 | cut -d'/' -f3)"
+  if [ -z "$id" ]; then
+    echo "ERROR: could not extract a mediafire file ID from URL: $u" >&2
     exit 1
   fi
-  seen_ids[$id]="$u"
+  if [ -n "${seen_ids["$id"]+x}" ]; then
+    echo "ERROR: duplicate mediafire ID '$id' found in more than one URL." >&2
+    echo "  -> $u" >&2
+    echo "  -> ${seen_ids["$id"]}" >&2
+    exit 1
+  fi
+  seen_ids["$id"]="$u"
 done
+echo "No duplicates found."
 
 echo "== Downloading firmware parts via aria2 =="
 for u in "${URLS[@]}"; do
