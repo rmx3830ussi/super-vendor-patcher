@@ -19,8 +19,8 @@ on:
         required: false
         default: |
           https://www.mediafire.com/file/fxqbbulzea7q1fu/RMX3830export_15_F.98_2026011910520000_GsmMafia.Com.7z.001/file
-          https://www.mediafire.com/file/fxqbbulzea7q1fu/RMX3830export_15_F.98_2026011910520000_GsmMafia.Com.7z.002/file
-          https://www.mediafire.com/file/fxqbbulzea7q1fu/RMX3830export_15_F.98_2026011910520000_GsmMafia.Com.7z.003/file
+          https://www.mediafire.com/file/msvz15gtbkiunok/RMX3830export_15_F.98_2026011910520000_GsmMafia.Com.7z.002/file
+          https://www.mediafire.com/file/1ef3s7qjo3b2z3c/RMX3830export_15_F.98_2026011910520000_GsmMafia.Com.7z.003/file
       MODE:
         description: 'extract = pull fstab files out for editing | patch = apply patches/ and repack'
         required: true
