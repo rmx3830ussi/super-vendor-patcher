@@ -8,6 +8,20 @@ sudo mkdir -p "$WORKDIR/fw"
 sudo chown -R "$(whoami)":"$(whoami)" "$WORKDIR"
 cd "$WORKDIR/fw"
 
+echo "== Checking for duplicate mediafire file IDs (common copy-paste mistake) =="
+declare -A seen_ids
+for u in "${URLS[@]}"; do
+  id=$(echo "$u" | awk -F'/file/' '{print $2}' | awk -F'/' '{print $1}')
+  if [ -n "${seen_ids[$id]:-}" ]; then
+    echo "ERROR: duplicate mediafire ID '$id' found in more than one URL." >&2
+    echo "  -> $u" >&2
+    echo "  -> ${seen_ids[$id]}" >&2
+    echo "These point to the SAME file. Go back to the source and get the real, distinct URLs for each part." >&2
+    exit 1
+  fi
+  seen_ids[$id]="$u"
+done
+
 echo "== Downloading firmware parts via aria2 =="
 for u in "${URLS[@]}"; do
   "$OLDPWD/scripts/badown_aria2.sh" "$u"
@@ -15,7 +29,12 @@ done
 ls -la
 
 echo "== Extracting multi-part 7z archive (auto-detects .002/.003 from .001) =="
-FIRST_PART=$(ls -1 *.7z.001 | head -n1)
+FIRST_PART=$(ls -1 *.7z.001 2>/dev/null | head -n1)
+if [ -z "$FIRST_PART" ]; then
+  echo "ERROR: no *.7z.001 file found among downloads. Files present:" >&2
+  ls -la >&2
+  exit 1
+fi
 sudo 7z x "$FIRST_PART" -o"$WORKDIR/fw/extracted" -y
 
 echo "== Locating .pac file =="
