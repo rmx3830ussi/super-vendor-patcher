@@ -103,9 +103,9 @@ jobs:
       - name: Convert sparse image if needed
         run: |
           cd /mnt/tmp/work
-          if ../../tools/simg2img super.img super.raw.img 2>/dev/null; then
-            sudo mv super.raw.img super.img
-          fi
+          ../../tools/simg2img super.img super.raw.img 
+          sudo mv super.raw.img super.img
+          
         working-directory: /mnt/tmp/work
 
       - name: Unpack super partition
