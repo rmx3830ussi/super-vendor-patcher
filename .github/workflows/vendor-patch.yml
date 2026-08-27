@@ -38,6 +38,9 @@ on:
         required: true
         default: 'vendor_a'
 
+env:
+  WORK: /mnt/tmp/work
+
 jobs:
   run:
     runs-on: ubuntu-latest
@@ -50,74 +53,91 @@ jobs:
 
       - name: Install base tools
         run: |
-          lsblk
           sudo apt-get update
           sudo apt-get install -y e2fsprogs util-linux wget unzip xz-utils python3 aria2 p7zip-full libc++1
 
       - name: Get prebuilt lpunpack/lpmake/simg2img/ext2simg
         run: |
           git clone --depth=1 https://github.com/Rprop/aosp15_partition_tools.git tools_repo
-          mkdir -p tools
           sudo cp tools_repo/linux_glibc_x86_64/* /usr/bin/
-          sudo chmod +x /usr/bin/append2simg
-          sudo chmod +x /usr/bin/ext2simg
-          sudo chmod +x /usr/bin/img2simg
-          sudo chmod +x /usr/bin/lpadd
-          sudo chmod +x /usr/bin/lpdumps
-          sudo chmod +x /usr/bin/lpmake
-          sudo chmod +x /usr/bin/lpunpack
-          sudo chmod +x /usr/bin/simg2img
+          sudo chmod +x /usr/bin/append2simg /usr/bin/ext2simg /usr/bin/img2simg \
+                         /usr/bin/lpadd /usr/bin/lpdumps /usr/bin/lpmake \
+                         /usr/bin/lpunpack /usr/bin/simg2img
+
+      - name: Fix libc++ dependency for prebuilt tools
+        run: |
+          LIBCXX=$(find / -name "libc++.so.1" 2>/dev/null | head -n1)
+          if [ -z "$LIBCXX" ]; then
+            echo "libc++.so.1 not found after installing libc++1 - aborting" >&2
+            exit 1
+          fi
+          echo "Found libc++ at: $LIBCXX"
+          sudo ln -sf "$LIBCXX" /usr/lib/x86_64-linux-gnu/libc++.so
+          sudo ldconfig
+          simg2img 2>&1 | head -n1 || true
 
       - name: Get avbtool
         run: |
-          wget -q https://raw.githubusercontent.com/jbeich/platform_external_avb/master/avbtool.py -O tools/avbtool.py
-          chmod +x tools/avbtool.py
+          sudo mkdir -p /usr/local/bin
+          wget -q https://raw.githubusercontent.com/jbeich/platform_external_avb/master/avbtool.py -O /tmp/avbtool.py
+          sudo mv /tmp/avbtool.py /usr/local/bin/avbtool.py
+          sudo chmod +x /usr/local/bin/avbtool.py
+
+      - name: Prepare /mnt/tmp/work working directory
+        run: |
+          sudo mkdir -p "$WORK"
+          sudo chown -R "$(whoami)":"$(whoami)" /mnt/tmp
 
       # ---------------- Get super.img: direct URL ----------------
       - name: "[direct_url] Download super.img"
         if: ${{ github.event.inputs.SOURCE == 'direct_url' }}
         run: |
-          cd /mnt/tmp
-          sudo wget -q "${{ github.event.inputs.SUPER_IMG_URL }}" -O super_download
+          cd "$WORK"
+          wget -q "${{ github.event.inputs.SUPER_IMG_URL }}" -O super_download
           if file super_download | grep -qi gzip; then
-            sudo mv super_download super.img.gz && sudo gunzip super.img.gz
+            mv super_download super.img.gz && gunzip super.img.gz
           elif file super_download | grep -qi xz; then
-            sudo mv super_download super.img.xz && sudo unxz super.img.xz
+            mv super_download super.img.xz && unxz super.img.xz
           else
-            sudo mv super_download super.img
+            mv super_download super.img
           fi
-          sudo mv super.img "$HOME/super.img"
 
       # ---------------- Get super.img: mediafire .pac firmware ----------------
       - name: "[mediafire_pac] Download + extract firmware, get super.img"
         if: ${{ github.event.inputs.SOURCE == 'mediafire_pac' }}
         run: |
-          bash scripts/fetch_mediafire_firmware.sh /mnt/tmp \
+          bash "$GITHUB_WORKSPACE/scripts/fetch_mediafire_firmware.sh" /mnt/tmp \
             "${{ github.event.inputs.MEDIAFIRE_URL_1 }}" \
             "${{ github.event.inputs.MEDIAFIRE_URL_2 }}" \
             "${{ github.event.inputs.MEDIAFIRE_URL_3 }}"
+          mv "$HOME/super.img" "$WORK/super.img"
 
       - name: Convert sparse image if needed
         run: |
-          simg2img $home/super.img $home/super.raw.img 
-          sudo mv $home/super.raw.img $home/super.img
+          cd "$WORK"
+          if simg2img super.img super.raw.img 2>/dev/null; then
+            mv super.raw.img super.img
+          fi
 
       - name: Unpack super partition
         run: |
-          mkdir unpacked
-          lpunpack $home/super.img unpacked/
-          ls -la $home/unpacked/
+          cd "$WORK"
+          mkdir -p unpacked
+          lpunpack super.img unpacked/
+          ls -la unpacked/
 
       - name: Prepare vendor image for mount
         run: |
+          cd "$WORK"
           VNAME="${{ github.event.inputs.VENDOR_PARTITION_NAME }}"
-          sudo cp "$home/unpacked/${VNAME}.img" vendor.img
-          sudo e2fsck -yf vendor.img || true
+          cp "unpacked/${VNAME}.img" vendor.img
+          e2fsck -yf vendor.img || true
           sudo resize2fs vendor.img 2G
 
       - name: Mount vendor image
         run: |
-          sudo mkdir -p vendor
+          cd "$WORK"
+          mkdir -p vendor
           sudo mount -o loop vendor.img vendor
           find vendor/etc -maxdepth 1 -iname "fstab.*" | sort
 
@@ -125,12 +145,13 @@ jobs:
       - name: "[extract] Zip fstab files found in vendor"
         if: ${{ github.event.inputs.MODE == 'extract' }}
         run: |
-          sudo mkdir -p extracted
+          cd "$WORK"
+          mkdir -p extracted
           sudo find vendor/etc -maxdepth 1 -iname "fstab.*" -exec cp {} extracted/ \;
           sudo chown -R "$(whoami)":"$(whoami)" extracted
           cd extracted && zip -r ../fstabs.zip . && cd ..
           ls -la extracted > "$GITHUB_WORKSPACE/fstab_manifest.txt"
-          cat "$home/fstab_manifest.txt"
+          cat "$GITHUB_WORKSPACE/fstab_manifest.txt"
 
       - name: "[extract] Upload fstab zip + manifest"
         if: ${{ github.event.inputs.MODE == 'extract' }}
@@ -138,14 +159,14 @@ jobs:
         with:
           name: fstab-extract
           path: |
-            $home/fstabs.zip
+            /mnt/tmp/work/fstabs.zip
             fstab_manifest.txt
 
       # ---------------- MODE: patch ----------------
       - name: "[patch] Apply patches from config/patch_map.json"
         if: ${{ github.event.inputs.MODE == 'patch' }}
         run: |
-          cd /mnt/tmp/work
+          cd "$WORK"
           echo "Vendor Patch Run Log - $(date -u)" > "$GITHUB_WORKSPACE/patch_run.log"
           python3 - << 'PYEOF' >> "$GITHUB_WORKSPACE/patch_run.log"
           import json, os, shutil
@@ -173,10 +194,11 @@ jobs:
       - name: "[patch] Unmount and shrink vendor image"
         if: ${{ github.event.inputs.MODE == 'patch' }}
         run: |
+          cd "$WORK"
           sudo umount vendor
-          sudo e2fsck -yf vendor.img || true
+          e2fsck -yf vendor.img || true
           sudo resize2fs -M vendor.img
-          sudo e2fsck -yf vendor.img || true
+          e2fsck -yf vendor.img || true
 
       - name: "[patch] Note on AVB / vbmeta"
         if: ${{ github.event.inputs.MODE == 'patch' }}
