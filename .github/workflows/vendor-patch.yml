@@ -101,8 +101,6 @@ jobs:
         run: |
           $home/tools/simg2img $home/super.img $home/super.raw.img 
           sudo mv $home/super.raw.img $home/super.img
-          
-        working-directory: /mnt/tmp/work
 
       - name: Unpack super partition
         run: |
