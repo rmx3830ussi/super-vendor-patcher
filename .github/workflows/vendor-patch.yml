@@ -58,10 +58,15 @@ jobs:
         run: |
           git clone --depth=1 https://github.com/Rprop/aosp15_partition_tools.git tools_repo
           mkdir -p tools
-          cp tools_repo/linux_glibc_x86_64/* tools/
-          chmod +x tools/*
-          ls tools
-          pwd
+          cp tools_repo/linux_glibc_x86_64/* /usr/bin/
+          chmod +x append2simg
+          chmod +x ext2simg
+          chmod +x img2simg
+          chmod +x lpadd
+          chmod +x lpdumps
+          chmod +x lpmake
+          chmod +x lpunpack
+          chmod +x simg2img
 
       - name: Get avbtool
         run: |
@@ -101,9 +106,8 @@ jobs:
 
       - name: Unpack super partition
         run: |
-          cd $home
           mkdir unpacked
-          $home/tools/lpunpack $home/super.img unpacked/
+          lpunpack $home/super.img unpacked/
           ls -la $home/unpacked/
 
       - name: Prepare vendor image for mount
