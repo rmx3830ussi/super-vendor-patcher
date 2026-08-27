@@ -58,7 +58,7 @@ jobs:
         run: |
           git clone --depth=1 https://github.com/Rprop/aosp15_partition_tools.git tools_repo
           mkdir -p tools
-          cp tools_repo/linux_glibc_x86_64/* /usr/bin/
+          sudo cp tools_repo/linux_glibc_x86_64/* /usr/bin/
           chmod +x append2simg
           chmod +x ext2simg
           chmod +x img2simg
