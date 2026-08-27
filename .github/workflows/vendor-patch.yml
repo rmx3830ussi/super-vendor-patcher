@@ -52,7 +52,7 @@ jobs:
         run: |
           lsblk
           sudo apt-get update
-          sudo apt-get install -y e2fsprogs util-linux wget unzip xz-utils python3 aria2 p7zip-full
+          sudo apt-get install -y e2fsprogs util-linux wget unzip xz-utils python3 aria2 p7zip-full libc++1
 
       - name: Get prebuilt lpunpack/lpmake/simg2img/ext2simg
         run: |
