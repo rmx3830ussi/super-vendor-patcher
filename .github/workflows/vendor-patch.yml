@@ -59,14 +59,14 @@ jobs:
           git clone --depth=1 https://github.com/Rprop/aosp15_partition_tools.git tools_repo
           mkdir -p tools
           sudo cp tools_repo/linux_glibc_x86_64/* /usr/bin/
-          chmod +x append2simg
-          chmod +x ext2simg
-          chmod +x img2simg
-          chmod +x lpadd
-          chmod +x lpdumps
-          chmod +x lpmake
-          chmod +x lpunpack
-          chmod +x simg2img
+          chmod +x /usr/bin/append2simg
+          chmod +x /usr/bin/ext2simg
+          chmod +x /usr/bin/img2simg
+          chmod +x /usr/bin/lpadd
+          chmod +x /usr/bin/lpdumps
+          chmod +x /usr/bin/lpmake
+          chmod +x /usr/bin/lpunpack
+          chmod +x /usr/bin/simg2img
 
       - name: Get avbtool
         run: |
