@@ -27,7 +27,7 @@ on:
         required: false
         default: 'https://www.mediafire.com/file/1ef3s7qjo3b2z3c/RMX3830export_15_F.98_2026011910520000_GsmMafia.Com.7z.003/file'
       MODE:
-        description: 'extract = pull fstab files out for editing | patch = apply patches/ and repack'
+        description: 'extract = pull fstab files out + generate config | patch = apply patches/<CODENAME> and repack'
         required: true
         type: choice
         options:
@@ -37,6 +37,13 @@ on:
         description: 'Name of the vendor partition inside super (e.g. vendor_a)'
         required: true
         default: 'vendor_a'
+      PHONE_CODENAME:
+        description: 'Device folder name under config/ and patches/'
+        required: true
+        default: 'RMX3830'
+
+permissions:
+  contents: write
 
 env:
   WORK: /mnt/tmp/work
@@ -169,14 +176,17 @@ jobs:
           find vendor/etc -maxdepth 1 -iname "fstab.*" | sort
 
       # ---------------- MODE: extract ----------------
-      - name: "[extract] Stage fstab files + manifest into one clean folder"
+      - name: "[extract] Stage fstab files, manifest, and generate config"
         if: ${{ github.event.inputs.MODE == 'extract' }}
         run: |
           cd "$WORK"
-          mkdir -p artifact_stage/fstabs
+          CODENAME="${{ github.event.inputs.PHONE_CODENAME }}"
+          mkdir -p artifact_stage/fstabs artifact_stage/config
           sudo find vendor/etc -maxdepth 1 -iname "fstab.*" -exec cp {} artifact_stage/fstabs/ \;
           sudo chown -R "$(whoami)":"$(whoami)" artifact_stage
           ls -la artifact_stage/fstabs > artifact_stage/fstab_manifest.txt
+          python3 "$GITHUB_WORKSPACE/scripts/generate_patch_map.py" vendor/etc "$CODENAME" "$GITHUB_WORKSPACE"
+          cp "$GITHUB_WORKSPACE/config/$CODENAME/patch_map.json" artifact_stage/config/patch_map.json
           cat artifact_stage/fstab_manifest.txt
 
       - name: "[extract] Upload staged folder"
@@ -186,13 +196,28 @@ jobs:
           name: fstab-extract
           path: /mnt/tmp/work/artifact_stage/*
 
+      - name: "[extract] Commit generated config back to repo"
+        if: ${{ github.event.inputs.MODE == 'extract' }}
+        run: |
+          CODENAME="${{ github.event.inputs.PHONE_CODENAME }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "config/$CODENAME/patch_map.json"
+          if git diff --cached --quiet; then
+            echo "No config changes to commit."
+          else
+            git commit -m "Auto-generate config/$CODENAME/patch_map.json from extract run"
+            git push origin HEAD:main
+          fi
+
       # ---------------- MODE: patch (ext4 write-back) ----------------
-      - name: "[patch][ext4] Apply patches from config/patch_map.json"
+      - name: "[patch][ext4] Apply patches from patches/<CODENAME>"
         if: ${{ github.event.inputs.MODE == 'patch' && env.VENDOR_FSTYPE == 'ext4' }}
         run: |
           cd "$WORK"
+          CODENAME="${{ github.event.inputs.PHONE_CODENAME }}"
           echo "Vendor Patch Run Log (ext4) - $(date -u)" > "$GITHUB_WORKSPACE/patch_run.log"
-          python3 "$GITHUB_WORKSPACE/scripts/apply_patch_map.py" vendor "$GITHUB_WORKSPACE" >> "$GITHUB_WORKSPACE/patch_run.log"
+          python3 "$GITHUB_WORKSPACE/scripts/apply_patch_map.py" vendor "$GITHUB_WORKSPACE" "$CODENAME" >> "$GITHUB_WORKSPACE/patch_run.log"
           cat "$GITHUB_WORKSPACE/patch_run.log"
 
       - name: "[patch][ext4] Unmount and shrink vendor image"
@@ -209,16 +234,15 @@ jobs:
         if: ${{ github.event.inputs.MODE == 'patch' && env.VENDOR_FSTYPE == 'erofs' }}
         run: |
           cd "$WORK"
+          CODENAME="${{ github.event.inputs.PHONE_CODENAME }}"
           echo "Vendor Patch Run Log (erofs) - $(date -u)" > "$GITHUB_WORKSPACE/patch_run.log"
-          # If still kernel-mounted read-only, switch to a real fsck.erofs extraction
-          # so files can actually be modified before rebuilding.
           if mountpoint -q vendor; then
             sudo umount vendor
             rm -rf vendor
             sudo fsck.erofs --extract=vendor vendor.img
           fi
           sudo chown -R "$(whoami)":"$(whoami)" vendor
-          python3 "$GITHUB_WORKSPACE/scripts/apply_patch_map.py" vendor "$GITHUB_WORKSPACE" >> "$GITHUB_WORKSPACE/patch_run.log"
+          python3 "$GITHUB_WORKSPACE/scripts/apply_patch_map.py" vendor "$GITHUB_WORKSPACE" "$CODENAME" >> "$GITHUB_WORKSPACE/patch_run.log"
           cat "$GITHUB_WORKSPACE/patch_run.log"
 
       - name: "[patch][erofs] Rebuild vendor.img with mkfs.erofs"
@@ -226,10 +250,12 @@ jobs:
         run: |
           cd "$WORK"
           sudo mkfs.erofs -zlz4hc vendor_new.img vendor/
-          echo "" >> "$GITHUB_WORKSPACE/patch_run.log"
-          echo "Rebuilt erofs image: vendor_new.img" >> "$GITHUB_WORKSPACE/patch_run.log"
-          echo "NOTE: compression settings (-zlz4hc) are a best guess and may not" >> "$GITHUB_WORKSPACE/patch_run.log"
-          echo "exactly match the original image's mkfs.erofs parameters." >> "$GITHUB_WORKSPACE/patch_run.log"
+          {
+            echo ""
+            echo "Rebuilt erofs image: vendor_new.img"
+            echo "NOTE: compression settings (-zlz4hc) are a best guess and may not"
+            echo "exactly match the original image's mkfs.erofs parameters."
+          } >> "$GITHUB_WORKSPACE/patch_run.log"
 
       - name: "[patch] Note on AVB / vbmeta"
         if: ${{ github.event.inputs.MODE == 'patch' }}
