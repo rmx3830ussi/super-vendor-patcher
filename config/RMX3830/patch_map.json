@@ -1,0 +1,81 @@
+{
+  "codename": "RMX3830",
+  "files": [
+    {
+      "filename": "fstab.cali",
+      "target": "etc/fstab.cali"
+    },
+    {
+      "filename": "fstab.charge_mode",
+      "target": "etc/fstab.charge_mode"
+    },
+    {
+      "filename": "fstab.enableswap",
+      "target": "etc/fstab.enableswap"
+    },
+    {
+      "filename": "fstab.uis7863_6h10",
+      "target": "etc/fstab.uis7863_6h10"
+    },
+    {
+      "filename": "fstab.uis7863_6h10_go",
+      "target": "etc/fstab.uis7863_6h10_go"
+    },
+    {
+      "filename": "fstab.uis7865_6h10",
+      "target": "etc/fstab.uis7865_6h10"
+    },
+    {
+      "filename": "fstab.uis7865_6h10_go",
+      "target": "etc/fstab.uis7865_6h10_go"
+    },
+    {
+      "filename": "fstab.ums9230_14c10_go",
+      "target": "etc/fstab.ums9230_14c10_go"
+    },
+    {
+      "filename": "fstab.ums9230_1h10",
+      "target": "etc/fstab.ums9230_1h10"
+    },
+    {
+      "filename": "fstab.ums9230_1h10_go",
+      "target": "etc/fstab.ums9230_1h10_go"
+    },
+    {
+      "filename": "fstab.ums9230_4h10",
+      "target": "etc/fstab.ums9230_4h10"
+    },
+    {
+      "filename": "fstab.ums9230_4h10_go",
+      "target": "etc/fstab.ums9230_4h10_go"
+    },
+    {
+      "filename": "fstab.ums9230_6h10",
+      "target": "etc/fstab.ums9230_6h10"
+    },
+    {
+      "filename": "fstab.ums9230_6h10_go",
+      "target": "etc/fstab.ums9230_6h10_go"
+    },
+    {
+      "filename": "fstab.ums9230_dhaka",
+      "target": "etc/fstab.ums9230_dhaka"
+    },
+    {
+      "filename": "fstab.ums9230_dhaka_go",
+      "target": "etc/fstab.ums9230_dhaka_go"
+    },
+    {
+      "filename": "fstab.ums9230_hulk",
+      "target": "etc/fstab.ums9230_hulk"
+    },
+    {
+      "filename": "fstab.ums9230_hulkU",
+      "target": "etc/fstab.ums9230_hulkU"
+    },
+    {
+      "filename": "fstab.ums9230_latte",
+      "target": "etc/fstab.ums9230_latte"
+    }
+  ]
+}
