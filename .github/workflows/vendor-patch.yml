@@ -169,25 +169,22 @@ jobs:
           find vendor/etc -maxdepth 1 -iname "fstab.*" | sort
 
       # ---------------- MODE: extract ----------------
-      - name: "[extract] Zip fstab files found in vendor"
+      - name: "[extract] Stage fstab files + manifest into one clean folder"
         if: ${{ github.event.inputs.MODE == 'extract' }}
         run: |
           cd "$WORK"
-          mkdir -p extracted
-          sudo find vendor/etc -maxdepth 1 -iname "fstab.*" -exec cp {} extracted/ \;
-          sudo chown -R "$(whoami)":"$(whoami)" extracted
-          cd extracted && zip -r ../fstabs.zip . && cd ..
-          ls -la extracted > "$GITHUB_WORKSPACE/fstab_manifest.txt"
-          cat "$GITHUB_WORKSPACE/fstab_manifest.txt"
+          mkdir -p artifact_stage/fstabs
+          sudo find vendor/etc -maxdepth 1 -iname "fstab.*" -exec cp {} artifact_stage/fstabs/ \;
+          sudo chown -R "$(whoami)":"$(whoami)" artifact_stage
+          ls -la artifact_stage/fstabs > artifact_stage/fstab_manifest.txt
+          cat artifact_stage/fstab_manifest.txt
 
-      - name: "[extract] Upload fstab zip + manifest"
+      - name: "[extract] Upload staged folder"
         if: ${{ github.event.inputs.MODE == 'extract' }}
         uses: actions/upload-artifact@v4
         with:
           name: fstab-extract
-          path: |
-            /mnt/tmp/work/fstabs.zip
-            fstab_manifest.txt
+          path: /mnt/tmp/work/artifact_stage/*
 
       # ---------------- MODE: patch (ext4 write-back) ----------------
       - name: "[patch][ext4] Apply patches from config/patch_map.json"
